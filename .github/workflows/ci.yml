@@ -1,0 +1,56 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: node --test test/report.test.mjs
+
+  # Runs the action against this repo's own fixtures, which is the only way to
+  # catch a break in the parts the unit tests cannot reach: the CLI download,
+  # `trust fetch`, and whether the generated policy is still one the current CLI
+  # accepts. `continue-on-error` because the fixture is deliberately unsigned,
+  # so what is being asserted is the verdict rather than success.
+  self-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: unsigned
+        uses: ./
+        continue-on-error: true
+        with:
+          path: test/fixtures/unsigned-skill
+          strict: true
+
+      - name: an unsigned fixture must fail under strict
+        run: |
+          if [ "${{ steps.unsigned.outputs.result }}" != 'fail' ]; then
+            echo "::error::expected result=fail, got '${{ steps.unsigned.outputs.result }}'"
+            exit 1
+          fi
+          echo "unsigned=${{ steps.unsigned.outputs.unsigned }}"
+
+      - id: lenient
+        uses: ./
+        with:
+          path: test/fixtures/unsigned-skill
+
+      - name: the same fixture must only warn by default
+        run: |
+          if [ "${{ steps.lenient.outputs.result }}" != 'warn' ]; then
+            echo "::error::expected result=warn, got '${{ steps.lenient.outputs.result }}'"
+            exit 1
+          fi

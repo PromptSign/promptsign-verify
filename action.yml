@@ -1,0 +1,151 @@
+name: PromptSign Verify
+description: Check that AI instruction files carry a valid signature from the publisher you expect. Offline, no secrets, works on fork PRs.
+author: PromptSign
+
+branding:
+  icon: shield
+  color: green
+
+inputs:
+  path:
+    description: >-
+      What to verify, one path per line. Files or directories. With `tree: true`
+      these are treated as roots to walk instead.
+    required: true
+  tree:
+    description: >-
+      Walk the paths as roots, reporting every signable artifact found. That
+      includes well-known instruction files that are unsigned. Use this to gate
+      a directory of vendored skills, and the default for named artifacts.
+    default: 'false'
+  identity:
+    description: >-
+      The signer identity that signatures must match, glob allowed, such as
+      `https://github.com/OWNER/*/.github/workflows/*`. Setting this makes an
+      unexpected signer a hard failure, and implies `strict`, because an
+      unsigned artifact cannot have the required identity.
+    default: ''
+  issuer:
+    description: >-
+      OIDC issuer that signatures must come from. Setting it alone requires
+      every artifact to be signed by someone from that issuer, and so also
+      implies `strict`. Defaults to GitHub Actions' issuer when `identity` is
+      set.
+    default: ''
+  strict:
+    description: >-
+      Fail the job on unsigned artifacts too, not only on broken ones. Off by
+      default, because a repo adopting this should not be blocked by an
+      ecosystem that is still mostly unsigned.
+    default: 'false'
+  policy:
+    description: >-
+      Path to your own policy.json. Takes precedence over `identity`, `issuer`
+      and `strict`, which exist only to save you from writing one.
+    default: ''
+  cli-version:
+    description: promptsign release tag to install. Pin it; don't track latest.
+    default: v0.3.0
+
+outputs:
+  result:
+    description: 'Worst outcome across every artifact checked: pass, warn, or fail.'
+    value: ${{ steps.verify.outputs.result }}
+  failed:
+    description: Number of artifacts that failed verification.
+    value: ${{ steps.verify.outputs.failed }}
+  unsigned:
+    description: Number of artifacts with no signature at all.
+    value: ${{ steps.verify.outputs.unsigned }}
+  report:
+    description: Path to the full JSON report on the runner.
+    value: ${{ steps.verify.outputs.report }}
+
+runs:
+  using: composite
+  steps:
+    # Deliberately no id-token check and no `permissions` requirement: verifying
+    # is offline and needs no identity of its own. That is why this action works
+    # on pull requests from forks, where promptsign-sign cannot run.
+    #
+    # Only the static musl builds are installed, so the runner has to be Linux.
+    # On macOS and Windows the download would succeed and the binary would
+    # simply not run.
+    - name: Check the runner can run the verifier
+      shell: bash
+      run: |
+        if [ "$RUNNER_OS" != Linux ]; then
+          echo "::error::promptsign-verify runs on Linux runners only, and this one is $RUNNER_OS."
+          echo "::error::Call the promptsign CLI directly instead; the release page has macOS and Windows binaries."
+          exit 1
+        fi
+
+    - name: Install promptsign ${{ inputs.cli-version }}
+      shell: bash
+      env:
+        PS_CLI_VERSION: ${{ inputs.cli-version }}
+      run: |
+        set -euo pipefail
+        case "$RUNNER_ARCH" in
+          X64)   target="x86_64-unknown-linux-musl" ;;
+          ARM64) target="aarch64-unknown-linux-musl" ;;
+          *)
+            echo "::error::No promptsign build for $RUNNER_OS/$RUNNER_ARCH."
+            exit 1
+            ;;
+        esac
+
+        base="https://github.com/PromptSign/promptsign-cli/releases/download/$PS_CLI_VERSION"
+        file="promptsign-$target.tar.gz"
+        tmp="$(mktemp -d)"
+
+        # --fail so a mistyped cli-version is reported as the 404 it is, rather
+        # than saving an error page and failing later on a checksum mismatch.
+        curl -fsSLo "$tmp/$file" "$base/$file"
+        curl -fsSLo "$tmp/SHA256SUMS" "$base/SHA256SUMS"
+
+        # One checksum file covers every archive in a release; check only ours,
+        # since the others aren't downloaded and `-c` fails on a missing file.
+        ( cd "$tmp" && grep " $file\$" SHA256SUMS | sha256sum -c - )
+
+        tar -xzf "$tmp/$file" -C "$tmp"
+        # -print -quit rather than a pipe into head: under pipefail, head
+        # closing the pipe early can kill find with SIGPIPE and fail the step.
+        bin="$(find "$tmp" -type f -name promptsign -print -quit)"
+        if [ -z "$bin" ]; then
+          echo "::error::No promptsign binary inside $file."
+          exit 1
+        fi
+        chmod +x "$bin"
+        echo "$(dirname "$bin")" >> "$GITHUB_PATH"
+
+    # Trust material, TOFU pins and the user-level policy all live under
+    # PROMPTSIGN_HOME. Keeping it in RUNNER_TEMP makes a run depend only on the
+    # repository and the inputs. On a self-hosted runner a policy.json left in
+    # the real home directory would otherwise decide the verdict silently.
+    - name: Point promptsign at a per-run home
+      shell: bash
+      run: echo "PROMPTSIGN_HOME=$RUNNER_TEMP/promptsign" >> "$GITHUB_ENV"
+
+    # Verification is offline, but it is offline against these roots, and they
+    # have to be on disk first. A fresh runner has no cache.
+    - name: Cache the Sigstore trust roots
+      shell: bash
+      run: promptsign trust fetch
+
+    # Policy construction, running the verifier, annotations and the job summary
+    # all live in one script so the logic is testable outside Actions, which is
+    # what test/report.test.mjs does. Node rather than jq: every runner that can
+    # run a JavaScript action has Node, which is not true of jq on self-hosted
+    # ones.
+    - name: Verify
+      id: verify
+      shell: bash
+      env:
+        PS_PATHS: ${{ inputs.path }}
+        PS_TREE: ${{ inputs.tree }}
+        PS_IDENTITY: ${{ inputs.identity }}
+        PS_ISSUER: ${{ inputs.issuer }}
+        PS_STRICT: ${{ inputs.strict }}
+        PS_POLICY: ${{ inputs.policy }}
+      run: node "$GITHUB_ACTION_PATH/scripts/verify.mjs"
