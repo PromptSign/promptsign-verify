@@ -23,6 +23,11 @@ jobs:
   # `trust fetch`, and whether the generated policy is still one the current CLI
   # accepts. `continue-on-error` because the fixture is deliberately unsigned,
   # so what is being asserted is the verdict rather than success.
+  #
+  # A green run here therefore carries two error annotations and one warning:
+  # the strict pass produces an error plus GitHub's own exit-code-1 annotation,
+  # and the lenient pass produces a warning. That is the expected state, and it
+  # is written up under "The annotations you will see" in the README.
   self-check:
     runs-on: ubuntu-latest
     steps:

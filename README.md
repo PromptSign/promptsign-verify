@@ -87,8 +87,28 @@ ecosystem is unsigned today, so a repo adopting this action should not be blocke
 on day one. Set `strict: true`, or pin an `identity`, once your own dependencies
 are signed and you want the gate to be real.
 
-Annotations land on the Files-changed tab, and every run writes a job summary
-listing each artifact, its version, and the identity that signed it.
+### The annotations you will see
+
+Annotations land on the Files-changed tab, and every run also writes a job
+summary listing each artifact, its version, and the identity that signed it.
+
+| Annotation | What it means |
+|---|---|
+| `::error` on an artifact | That artifact failed. One per failing artifact. |
+| `::warning` on an artifact | That artifact warned, which today almost always means it is unsigned. |
+| `Process completed with exit code 1` | GitHub's own annotation for the step that failed. It appears once whenever `result` is `fail`, alongside the per-artifact errors. It is not a separate problem, and there is no way to suppress it. |
+
+Error and warning annotations for the same artifact carry the **same text**. If
+you run the action twice over one artifact, once strict and once not, the two
+read as a duplicate even though one is an error and the other a warning.
+
+> **This repository's own CI shows 2 errors and 1 warning on a green run, and
+> that is the expected state.** The `self-check` job runs the action twice over
+> one deliberately unsigned fixture: once with `strict: true`, which produces an
+> error annotation plus the exit-code-1 annotation, and once with the defaults,
+> which produces a warning. The job is green because what it asserts is the
+> verdict of each run, not that each run succeeded. A green badge carrying those
+> three annotations means the action is working.
 
 ## Two things worth knowing
 
