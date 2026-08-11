@@ -136,8 +136,12 @@ repository and the inputs, and cannot be decided by a `policy.json` left in the
 home directory of a self-hosted runner.
 
 Linux runners only, on x86_64 or arm64. macOS and Windows runners can call the
-CLI directly, and the [release page](https://github.com/PromptSign/promptsign-cli/releases)
-has binaries for both.
+CLI directly, and the [release page](https://github.com/PromptSign/promptsign-cli/releases) has binaries for both.
+
+## Learn more
+
+Pair this with [`promptsign-sign`](https://github.com/PromptSign/promptsign-sign)to sign on release and verify on every pull request.
+Full docs, including the npm SDK and the Claude Code plugin, are on the [Integrate](https://promptsign.ai/integrate?c=actions-listing) page.
 
 ## License
 
