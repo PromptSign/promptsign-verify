@@ -65,6 +65,7 @@ sign on release, verify on every PR.
 | `issuer` | GitHub's, when `identity` is set | The OIDC issuer signatures must come from. Set it for other IdPs. On its own it requires that *somebody* from that issuer signed, so it **implies `strict`** too. |
 | `strict` | `false` | Fail on unsigned artifacts too, not only broken ones. |
 | `policy` | none | Your own `policy.json`. Takes precedence over the three inputs above, which exist only to save you writing one. |
+| `badge` | none | Write a README badge SVG to this path, rendered from this run. See [Badge](#badge). |
 | `cli-version` | `v0.3.0` | Which [promptsign release](https://github.com/PromptSign/promptsign-cli/releases) to install. Pin it. |
 
 ## Outputs
@@ -75,6 +76,59 @@ sign on release, verify on every PR.
 | `failed` | How many artifacts failed verification. |
 | `unsigned` | How many carry no signature at all. |
 | `report` | Path to the full JSON report on the runner. |
+| `badge` | Path to the badge SVG, when `badge` was set. |
+
+## Badge
+
+Set `badge` to a path and the action writes an SVG rendered from the run it just
+did, naming the identity it established:
+
+![PromptSign: signed by github.com/OWNER/REPO](docs/badge-example.svg)
+
+```yaml
+- uses: PromptSign/promptsign-verify@v1
+  with:
+    path: skills/
+    tree: true
+    badge: .github/promptsign-badge.svg
+
+- name: Keep the badge current
+  run: |
+    git add .github/promptsign-badge.svg
+    git diff --quiet --cached || {
+      git -c user.name=github-actions -c user.email=github-actions@github.com \
+        commit -m 'Update the PromptSign badge'
+      git push
+    }
+```
+
+Then reference it from your README, pointing the link wherever you like:
+
+```markdown
+[![PromptSign](.github/promptsign-badge.svg)](https://promptsign.ai/verified)
+```
+
+**The file is yours.** Nothing is hosted by PromptSign, no image is fetched from
+us or from a badge service when someone reads your README, and the badge keeps
+working if this project disappears. It also means no third party learns who is
+reading your repository.
+
+Three things it deliberately does:
+
+- **It names the signer** rather than showing a bare checkmark, because *signed*
+  must never be read as *safe*. A green badge says these bytes came from that
+  identity, and says nothing at all about what they do.
+- **It never names a signer on a failure.** A bundle that fails to verify still
+  carries an identity field, and printing it would credit a publisher the
+  verifier just refused to establish.
+- **It is written on failing runs too.** Skipping the write would leave the last
+  green badge in place on a repo that no longer verifies, which is worse than
+  showing the failure.
+
+Because it is generated from a real verification rather than composed from a
+URL, it is not a claim anyone can paste onto a repo that was never signed. It is
+still only as current as the last run, so treat it as a signpost to
+`promptsign verify`, never as a substitute for it.
 
 ## What fails the job, and what doesn't
 

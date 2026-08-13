@@ -43,6 +43,13 @@ inputs:
       Path to your own policy.json. Takes precedence over `identity`, `issuer`
       and `strict`, which exist only to save you from writing one.
     default: ''
+  badge:
+    description: >-
+      Write a README badge SVG to this path, rendered from this run's result and
+      naming the signer it established. Commit it in your own repo and reference
+      it from your README; nothing is hosted by PromptSign. Written on failure
+      too, so a broken run replaces the badge rather than leaving a stale one.
+    default: ''
   cli-version:
     description: promptsign release tag to install. Pin it; don't track latest.
     default: v0.3.0
@@ -60,6 +67,9 @@ outputs:
   report:
     description: Path to the full JSON report on the runner.
     value: ${{ steps.verify.outputs.report }}
+  badge:
+    description: Path to the badge SVG, when `badge` was set.
+    value: ${{ steps.verify.outputs.badge }}
 
 runs:
   using: composite
@@ -148,4 +158,5 @@ runs:
         PS_ISSUER: ${{ inputs.issuer }}
         PS_STRICT: ${{ inputs.strict }}
         PS_POLICY: ${{ inputs.policy }}
+        PS_BADGE: ${{ inputs.badge }}
       run: node "$GITHUB_ACTION_PATH/scripts/verify.mjs"

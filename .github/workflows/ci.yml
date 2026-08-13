@@ -16,7 +16,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-      - run: node --test test/report.test.mjs
+      - run: node --test test/report.test.mjs test/badge.test.mjs
 
   # Runs the action against this repo's own fixtures, which is the only way to
   # catch a break in the parts the unit tests cannot reach: the CLI download,
@@ -52,6 +52,7 @@ jobs:
         uses: ./
         with:
           path: test/fixtures/unsigned-skill
+          badge: ${{ runner.temp }}/promptsign-badge.svg
 
       - name: the same fixture must only warn by default
         run: |
@@ -59,3 +60,18 @@ jobs:
             echo "::error::expected result=warn, got '${{ steps.lenient.outputs.result }}'"
             exit 1
           fi
+
+      # The unit tests cover what the badge says; this covers that it is written
+      # at all, since the write happens on the runner and nothing else would
+      # notice it silently failing. The fixture is unsigned, so the badge must
+      # say so rather than showing a signer.
+      - name: the badge must be written and admit the fixture is unsigned
+        run: |
+          badge="${{ steps.lenient.outputs.badge }}"
+          if [ ! -s "$badge" ]; then
+            echo "::error::no badge written to '$badge'"
+            exit 1
+          fi
+          grep -q 'unsigned' "$badge" || { echo "::error::badge does not report unsigned"; cat "$badge"; exit 1; }
+          grep -q '2ea44f' "$badge" && { echo "::error::unsigned fixture produced a green badge"; exit 1; }
+          cat "$badge"

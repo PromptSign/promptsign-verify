@@ -9,6 +9,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { renderBadge } from './badge.mjs';
 
 const env = process.env;
 const TMP = env.RUNNER_TEMP || os.tmpdir();
@@ -201,6 +202,17 @@ function main() {
 
   for (const line of annotations(results)) console.log(line);
   summary(summaryTable(results, counts));
+
+  // Written whatever the verdict, including a failing one. A badge left behind
+  // from the last good run is a stale green claim on a repo that no longer
+  // verifies, which is worse than showing the failure.
+  const badge = env.PS_BADGE?.trim();
+  if (badge) {
+    fs.mkdirSync(path.dirname(path.resolve(badge)), { recursive: true });
+    fs.writeFileSync(badge, renderBadge(results, counts));
+    console.log(`Badge written to ${badge}`);
+    setOutput('badge', badge);
+  }
 
   setOutput('result', counts.result);
   setOutput('failed', counts.failed);
