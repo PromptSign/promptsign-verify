@@ -1,0 +1,14 @@
+{
+  "target": "./promptsign-plugin",
+  "policySource": "(built-in default)",
+  "name": "promptsign",
+  "version": "0.3.1",
+  "kind": "plugin",
+  "identity": "https://github.com/PromptSign/promptsign-plugin/.github/workflows/sign.yml@refs/tags/promptsign--v0.3.1",
+  "issuer": "https://token.actions.githubusercontent.com",
+  "keyid": "c2bb7c7617c65c51e4f76f245f43fc562bd9348abe42dd338b6d7bf32ae5ea4a",
+  "integratedTime": 1786500297,
+  "signed": true,
+  "action": "pass",
+  "findings": []
+}

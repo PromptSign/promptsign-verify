@@ -79,9 +79,15 @@ function truncate(s, max) {
  *  established" rather than naming one. */
 export function badgeText(results, counts) {
   if (counts.total === 0) return { message: 'nothing checked', color: COLORS.unsigned };
+  // "verification failed", never "signature invalid". A failure has three causes
+  // the report does not separate: the bytes changed, the signer is not allowed
+  // by policy, or a previously pinned signer changed. Only the first is an
+  // invalid signature, and a valid signature from a newly pinned identity is the
+  // common case in practice. Naming a cause the verifier did not establish is
+  // the same mistake as naming a signer it refused to establish.
   if (counts.failed > 0) {
     return {
-      message: counts.failed === counts.total ? 'signature invalid' : `${counts.failed} of ${counts.total} invalid`,
+      message: counts.failed === counts.total ? 'verification failed' : `${counts.failed} of ${counts.total} failed`,
       color: COLORS.fail,
     };
   }

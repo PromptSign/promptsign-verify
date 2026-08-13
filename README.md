@@ -118,9 +118,12 @@ Three things it deliberately does:
 - **It names the signer** rather than showing a bare checkmark, because *signed*
   must never be read as *safe*. A green badge says these bytes came from that
   identity, and says nothing at all about what they do.
-- **It never names a signer on a failure.** A bundle that fails to verify still
-  carries an identity field, and printing it would credit a publisher the
-  verifier just refused to establish.
+- **It never names a signer on a failure**, and never names a *cause* either. A
+  bundle that fails to verify still carries an identity field, and printing it
+  would credit a publisher the verifier just refused to establish. The badge says
+  "verification failed" rather than "signature invalid", because a failure can
+  equally mean the signer is not allowed by policy or that a pinned signer
+  changed — both of which happen with a perfectly valid signature.
 - **It is written on failing runs too.** Skipping the write would leave the last
   green badge in place on a repo that no longer verifies, which is worse than
   showing the failure.

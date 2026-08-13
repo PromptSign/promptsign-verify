@@ -5,11 +5,19 @@
 // for anything unproven, and no unescaped report text reaching the SVG.
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 
 process.env.PROMPTSIGN_ACTION_NO_MAIN = '1';
 const { badgeText, badgeSvg, shortIdentity, textWidth, renderBadge } = await import('../scripts/badge.mjs');
 const { tally } = await import('../scripts/verify.mjs');
+
+// Real `promptsign verify --json` output, captured from a signed artifact rather
+// than written by hand. The rest of this file invents its report objects, which
+// would keep passing if the verifier renamed a field and every badge silently
+// went grey. Regenerate with:
+//   promptsign verify ./promptsign-plugin --json --no-pin-updates
+const REAL_SIGNED = JSON.parse(readFileSync(new URL('./fixtures/signed-report.json', import.meta.url), 'utf8'));
 
 const GREEN = '#2ea44f';
 const YELLOW = '#dfb317';
@@ -68,15 +76,29 @@ describe('badgeText', () => {
   // a publisher the verifier explicitly refused to establish.
   test('a failure never names a signer', () => {
     const { message, color } = textOf([broken]);
-    assert.equal(message, 'signature invalid');
+    assert.equal(message, 'verification failed');
     assert.equal(color, RED);
     assert.ok(!message.includes('PromptSign/promptsign-plugin'));
   });
 
   test('a partial failure counts rather than naming', () => {
     const { message, color } = textOf([signed(WORKFLOW_ID), broken]);
-    assert.equal(message, '1 of 2 invalid');
+    assert.equal(message, '1 of 2 failed');
     assert.equal(color, RED);
+  });
+
+  // Observed for real: verifying a correctly signed artifact against a machine
+  // whose pin still names the previous ref fails on the pin, not the signature.
+  // Calling that "signature invalid" would be alarming and wrong.
+  test('a policy or pin failure is not reported as an invalid signature', () => {
+    const pinned = {
+      ...REAL_SIGNED,
+      action: 'fail',
+      findings: [{ level: 'error', message: 'TOFU pin mismatch for "promptsign"' }],
+    };
+    const { message } = textOf([pinned]);
+    assert.equal(message, 'verification failed');
+    assert.ok(!/signature/i.test(message), 'must not blame the signature for a policy failure');
   });
 
   test('unsigned is grey and says so', () => {
@@ -106,6 +128,16 @@ describe('badgeText', () => {
   test('the same publisher twice is still one publisher', () => {
     const results = [signed(WORKFLOW_ID), signed(WORKFLOW_ID)];
     assert.equal(textOf(results).message, 'signed by github.com/PromptSign/promptsign-plugin');
+  });
+
+  // The green path is the one CI cannot reach: the only fixture there is
+  // unsigned, so nothing on a runner ever exercises naming a real signer. This
+  // is the guard against the verifier renaming a field and every signed repo's
+  // badge quietly going grey while the invented fixtures above stay green.
+  test('real verifier output for a signed artifact names its signer, in green', () => {
+    const { message, color } = textOf([REAL_SIGNED]);
+    assert.equal(message, 'signed by github.com/PromptSign/promptsign-plugin');
+    assert.equal(color, GREEN);
   });
 
   test('an empty report claims nothing', () => {
