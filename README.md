@@ -66,7 +66,7 @@ sign on release, verify on every PR.
 | `strict` | `false` | Fail on unsigned artifacts too, not only broken ones. |
 | `policy` | none | Your own `policy.json`. Takes precedence over the three inputs above, which exist only to save you writing one. |
 | `badge` | none | Write a README badge SVG to this path, rendered from this run. See [Badge](#badge). |
-| `cli-version` | `v0.8.0` | Which [promptsign release](https://github.com/PromptSign/promptsign-cli/releases) to install. Pin it. |
+| `cli-version` | `v0.9.0` | Which [promptsign release](https://github.com/PromptSign/promptsign-cli/releases) to install. Pin it. |
 
 ## Outputs
 
